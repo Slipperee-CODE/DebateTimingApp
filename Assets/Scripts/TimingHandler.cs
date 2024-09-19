@@ -4,6 +4,9 @@ using UnityEngine;
 using System;
 using UnityEngine.UI;
 using TMPro;
+using UnityEngine.InputSystem;
+using System.Runtime.InteropServices;
+using System.Diagnostics;
 
 public class TimingHandler : MonoBehaviour
 {
@@ -12,59 +15,78 @@ public class TimingHandler : MonoBehaviour
     [SerializeField] private Color protectedTimeColor;
     [SerializeField] private Color nonProtectedTimeColor;
     [SerializeField] private TMP_Text timerText;
+    [SerializeField] private TMP_Text roundText;
     [SerializeField] private Image background;
     private Boolean isTiming = false;
     private int roundsElasped = 0;
+    private PlayerInput playerInput;
+    private InputAction touchPressAction;
 
-    private void Start()
+    private void Awake()
     {
-
+        playerInput = GetComponent<PlayerInput>();
+        touchPressAction = playerInput.actions.FindAction("TouchPress");
     }
 
-    private void RegisterPress()
+    private void OnEnable()
     {
+        touchPressAction.performed += RegisterPress;
+    }
+
+    private void OnDisable()
+    {
+        touchPressAction.performed -= RegisterPress;
+    }
+
+    private void RegisterPress(InputAction.CallbackContext context)
+    {
+        print("Press Registered");
         if (!isTiming)
         {
-            if (roundsElasped < 5)
+            if (roundsElasped < 4)
             {
-                ElapseRound(timePerRound);
                 isTiming = true;
+                roundsElasped++;
+                roundText.text = roundsElasped.ToString();
+                StartCoroutine(ElapseRound(timePerRound));
             } 
-            else if (roundsElasped < 7)
+            else if (roundsElasped < 6)
             {
-                ElapseRound(timePerRound - 1);
                 isTiming = true;
-            }
-            else
-            {
-                roundsElasped = 0;
+                roundsElasped++;
+                roundText.text = roundsElasped.ToString();
+                StartCoroutine(ElapseRound(timePerRound - 1));
             }
         }
         else
         {
             isTiming = false;
-            background.color = inBetweenRoundsColor;
-            roundsElasped++;
         }
     }
 
-    private void ElapseRound(float minutes)
+    IEnumerator ElapseRound(float minutes)
     {
         float timeElapsed = 0;
-        while (timeElapsed <= minutes * 60 && isTiming == true)
+        while (timeElapsed <= minutes * 60 + 1 && isTiming == true)
         {
             UpdateTimer(timeElapsed);
             UpdateBackground(timeElapsed, minutes);
 
             timeElapsed += Time.deltaTime;
+            yield return null;
         }
         isTiming = false;
+        background.color = inBetweenRoundsColor;
+        if (roundsElasped >= 6)
+        {
+            roundsElasped = 0;
+        }
     }
 
     private void UpdateTimer(float timeElapsed)
     {
         TimeSpan timeSpan = TimeSpan.FromSeconds(timeElapsed);
-        string timeText = string.Format("{1:D2}:{2:D2}", timeSpan.Minutes, timeSpan.Seconds);
+        string timeText = string.Format("{0:D2}:{1:D2}", timeSpan.Minutes, timeSpan.Seconds);
         timerText.text = timeText;
     }
 
